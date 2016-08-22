@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">SelectableTextView</string>
+    <string name="sample_text">
+        This week at Google I/O 2016 we launched Android Studio 2.2 Preview.\n
+        This release is a large update that builds upon our focus to create a fast and productive integrated development environment (IDE) for Android.
+        Developed in sync with the Android platform, Android Studio allows you to develop with the latest Android APIs and features.
+        Since launching Android Studio at Google I/O just 3 years ago, we received great feedback from on you on what features you want the most.
+        Today 92% of the top 125 apps and game developers on Google Play, plus millions of developers worldwide, use Android Studio.
+        We want to continue to build features that will continue to make you more efficient when developing for Android and more productive.
+        Android Studio 2.2 Preview includes a portfolio of new features along the spectrum of developments, ranging from designing user interfaces to building and debugging your app in new ways.
+    </string>
+</resources>
