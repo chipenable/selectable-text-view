@@ -17,24 +17,26 @@ import android.widget.TextView;
  */
 public class SelectableTextView extends TextView {
 
-    public interface OnWordClick{
-        void onWordClick(String word);
-    }
-
-    public interface OnWordDoubleClick{
-        void onWordDoubleClick(String word);
-    }
-
-    public interface OnWordLongPress{
-        void onWordLongPress(String word);
-    }
-
     private static final String TAG = SelectableTextView.class.getName();
-
+    private static final int DEFAULT_COLOR = Color.RED;
     private OnWordClick mWordClickListener;
     private OnWordDoubleClick mWordDoubleClickListener;
     private OnWordLongPress mOnWordLongPressListener;
     private GestureDetector mGestureDetector;
+    private boolean mEnableSpan = false;
+    private int mColor = DEFAULT_COLOR;
+
+    public interface OnWordClick {
+        void onWordClick(int position, String word);
+    }
+
+    public interface OnWordDoubleClick {
+        void onWordDoubleClick(int position, String word);
+    }
+
+    public interface OnWordLongPress {
+        void onWordLongPress(int position, String word);
+    }
 
     public SelectableTextView(Context context) {
         super(context);
@@ -51,58 +53,46 @@ public class SelectableTextView extends TextView {
         mGestureDetector = new GestureDetector(context, new GestureListener());
     }
 
-    public void setOnWordClickListener(OnWordClick listener){
+    public void setOnWordClickListener(OnWordClick listener) {
         mWordClickListener = listener;
     }
 
-    public void setOnWordDoubleClickListener(OnWordDoubleClick listener){
+    public void setOnWordDoubleClickListener(OnWordDoubleClick listener) {
         mWordDoubleClickListener = listener;
     }
 
-    public void setOnWordLongPressListener(OnWordLongPress listener){
+    public void setOnWordLongPressListener(OnWordLongPress listener) {
         mOnWordLongPressListener = listener;
     }
-
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         return mGestureDetector.onTouchEvent(event);
     }
 
-
-
     private class GestureListener extends GestureDetector.SimpleOnGestureListener {
 
         @Override
         public boolean onDown(MotionEvent e) {
-
-            Position p = findSelectedWord(e);
-            if (p != null){
-                String selectedWord = getText().subSequence(p.start, p.end).toString();
-                if (mWordClickListener != null){
-                    mWordClickListener.onWordClick(selectedWord);
+            if (mWordClickListener != null) {
+                Position p = findSelectedWord(e);
+                if (p != null) {
+                    setSpan(p);
+                    String selectedWord = getText().subSequence(p.start, p.end).toString();
+                    mWordClickListener.onWordClick(p.start, selectedWord);
                 }
             }
-
             return true;
         }
 
         @Override
         public boolean onDoubleTap(MotionEvent e) {
-
-            Position p = findSelectedWord(e);
-            if (p != null){
-                CharSequence text = getText();
-                String selectedWord = text.subSequence(p.start, p.end).toString();
-
-                SpannableStringBuilder ssb = new SpannableStringBuilder(text);
-                CharacterStyle span = new ForegroundColorSpan(Color.RED);
-                ssb.clearSpans();
-                ssb.setSpan(span, p.start, p.end, Spannable.SPAN_INCLUSIVE_INCLUSIVE );
-                setText(ssb);
-
-                if (mWordDoubleClickListener != null){
-                    mWordDoubleClickListener.onWordDoubleClick(selectedWord);
+            if (mWordDoubleClickListener != null) {
+                Position p = findSelectedWord(e);
+                if (p != null) {
+                    setSpan(p);
+                    String selectedWord = getText().subSequence(p.start, p.end).toString();
+                    mWordDoubleClickListener.onWordDoubleClick(p.start, selectedWord);
                 }
             }
             return true;
@@ -110,69 +100,64 @@ public class SelectableTextView extends TextView {
 
         @Override
         public void onLongPress(MotionEvent e) {
-            Position p = findSelectedWord(e);
-            if (p != null){
-                String selectedWord = getText().subSequence(p.start, p.end).toString();
-                Log.d(TAG, "Selected text: " + selectedWord);
-                if (mOnWordLongPressListener != null){
-                    mOnWordLongPressListener.onWordLongPress(selectedWord);
+            if (mOnWordLongPressListener != null) {
+                Position p = findSelectedWord(e);
+                if (p != null) {
+                    setSpan(p);
+                    String selectedWord = getText().subSequence(p.start, p.end).toString();
+                    mOnWordLongPressListener.onWordLongPress(p.start, selectedWord);
                 }
             }
             super.onLongPress(e);
         }
     }
 
-    private class Position{
+    private class Position {
         public int start;
         public int end;
 
-        Position(int s, int e){
+        Position(int s, int e) {
             start = s;
             end = e;
         }
     }
 
-    private Position findSelectedWord(MotionEvent e){
+    private Position findSelectedWord(MotionEvent e) {
 
         String text = getText().toString();
         int start = getOffsetForPosition(e.getX(), e.getY());
 
-        if ((start >= text.length()) || (start < 0)){
+        if ((start >= text.length()) || (start < 0)) {
             return null;
         }
 
         Character ch = text.charAt(start);
-        if ((ch.compareTo(' ') == 0) || (ch.compareTo('\n') == 0)){
+        if ((ch.compareTo(' ') == 0) || (ch.compareTo('\n') == 0)) {
             return null;
         }
 
         int wordStart = 0;
         Character[] startPattern = {'.', ',', ' ', '('};
-        for(Character character: startPattern){
+        for (Character character : startPattern) {
             int position = text.lastIndexOf(character, start);
             Log.d(TAG, character.toString() + " " + Integer.toString(position));
-            if (position != -1 && position > wordStart){
+            if (position != -1 && position > wordStart) {
                 wordStart = position;
             }
         }
 
-        if (wordStart != 0){
+        if (wordStart != 0) {
             wordStart++;
         }
 
         int wordEnd = text.length();
         Character[] endPattern = {'.', ',', ' ', ')'};
-        for(Character character: endPattern){
+        for (Character character : endPattern) {
             int end = text.indexOf(character, start);
-            if (end != -1 && end < wordEnd){
+            if (end != -1 && end < wordEnd) {
                 wordEnd = end;
             }
         }
-
-        //int endWord = text.indexOf(' ', start);
-        /*if (wordEnd == -1){
-            wordEnd = text.length();
-        }*/
 
         if (wordStart >= wordEnd) {
             return null;
@@ -181,5 +166,21 @@ public class SelectableTextView extends TextView {
         return new Position(wordStart, wordEnd);
     }
 
+    private void setSpan(Position p) {
+        if (mEnableSpan && p != null) {
+            SpannableStringBuilder ssb = new SpannableStringBuilder(getText());
+            CharacterStyle span = new ForegroundColorSpan(mColor);
+            ssb.clearSpans();
+            ssb.setSpan(span, p.start, p.end, Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+            setText(ssb);
+        }
+    }
 
+    public void enableSelectWord(boolean enable){
+        mEnableSpan = enable;
+    }
+
+    public void setSelectColor(int color){
+        mColor = color;
+    }
 }
