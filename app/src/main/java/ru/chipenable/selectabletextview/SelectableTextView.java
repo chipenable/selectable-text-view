@@ -2,12 +2,13 @@ package ru.chipenable.selectabletextview;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.CharacterStyle;
 import android.text.style.ForegroundColorSpan;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.widget.TextView;
@@ -19,24 +20,32 @@ public class SelectableTextView extends TextView {
 
     private static final String TAG = SelectableTextView.class.getName();
     private static final int DEFAULT_COLOR = Color.RED;
+    private static final Character[] START_PATTERN = {'.', ',', ' ', '('};
+    private static final Character[] END_PATTERN = {'.', ',', ' ', ')'};
+
     private OnWordClick mWordClickListener;
     private OnWordDoubleClick mWordDoubleClickListener;
     private OnWordLongPress mOnWordLongPressListener;
     private GestureDetector mGestureDetector;
+
     private boolean mEnableSpan = false;
     private int mColor = DEFAULT_COLOR;
+
+    private SelectedWord selectedWord;
 
     public interface OnWordClick {
         void onWordClick(int position, String word);
     }
 
-    public interface OnWordDoubleClick {
+    public interface OnWordDoubleClick extends OnWordClick{
         void onWordDoubleClick(int position, String word);
     }
 
-    public interface OnWordLongPress {
+    public interface OnWordLongPress extends OnWordClick{
         void onWordLongPress(int position, String word);
     }
+
+    /** constructors */
 
     public SelectableTextView(Context context) {
         super(context);
@@ -53,6 +62,8 @@ public class SelectableTextView extends TextView {
         mGestureDetector = new GestureDetector(context, new GestureListener());
     }
 
+    /** setters */
+
     public void setOnWordClickListener(OnWordClick listener) {
         mWordClickListener = listener;
     }
@@ -65,6 +76,73 @@ public class SelectableTextView extends TextView {
         mOnWordLongPressListener = listener;
     }
 
+    public void enableSelectWord(boolean enable){
+        mEnableSpan = enable;
+    }
+
+    public void setSelectColor(int color){
+        mColor = color;
+    }
+
+    /** methods to save state */
+
+    @Override
+    public Parcelable onSaveInstanceState() {
+        Parcelable superState = super.onSaveInstanceState();
+        SavedState ss = new SavedState(superState);
+        ss.start = selectedWord.start;
+        ss.end = selectedWord.end;
+        ss.word = selectedWord.word;
+        return ss;
+    }
+
+    @Override
+    public void onRestoreInstanceState(Parcelable state) {
+        SavedState ss = (SavedState) state;
+        super.onRestoreInstanceState(ss.getSuperState());
+        selectedWord = new SelectedWord(ss.start, ss.end, ss.word);
+        setSpan(selectedWord);
+    }
+
+    static class SavedState extends BaseSavedState{
+        int start;
+        int end;
+        String word;
+
+        public SavedState(Parcelable superState) {
+            super(superState);
+        }
+
+        private SavedState(Parcel in) {
+            super(in);
+            this.start = in.readInt();
+            this.end = in.readInt();
+            this.word = in.readString();
+        }
+
+        @Override
+        public void writeToParcel(Parcel out, int flags) {
+            super.writeToParcel(out, flags);
+            out.writeInt(this.start);
+            out.writeInt(this.end);
+            out.writeString(this.word);
+        }
+
+        public static final Parcelable.Creator<SavedState> CREATOR
+                = new Parcelable.Creator<SavedState>() {
+            public SavedState createFromParcel(Parcel in) {
+                return new SavedState(in);
+            }
+
+            public SavedState[] newArray(int size) {
+                return new SavedState[size];
+            }
+        };
+
+    }
+
+    /** handling of touch events */
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         return mGestureDetector.onTouchEvent(event);
@@ -75,11 +153,10 @@ public class SelectableTextView extends TextView {
         @Override
         public boolean onDown(MotionEvent e) {
             if (mWordClickListener != null) {
-                Position p = findSelectedWord(e);
+                SelectedWord p = findSelectedWord(e);
                 if (p != null) {
                     setSpan(p);
-                    String selectedWord = getText().subSequence(p.start, p.end).toString();
-                    mWordClickListener.onWordClick(p.start, selectedWord);
+                    mWordClickListener.onWordClick(p.start, p.word);
                 }
             }
             return true;
@@ -88,11 +165,10 @@ public class SelectableTextView extends TextView {
         @Override
         public boolean onDoubleTap(MotionEvent e) {
             if (mWordDoubleClickListener != null) {
-                Position p = findSelectedWord(e);
+                SelectedWord p = findSelectedWord(e);
                 if (p != null) {
                     setSpan(p);
-                    String selectedWord = getText().subSequence(p.start, p.end).toString();
-                    mWordDoubleClickListener.onWordDoubleClick(p.start, selectedWord);
+                    mWordDoubleClickListener.onWordDoubleClick(p.start, p.word);
                 }
             }
             return true;
@@ -101,28 +177,31 @@ public class SelectableTextView extends TextView {
         @Override
         public void onLongPress(MotionEvent e) {
             if (mOnWordLongPressListener != null) {
-                Position p = findSelectedWord(e);
+                SelectedWord p = findSelectedWord(e);
                 if (p != null) {
                     setSpan(p);
-                    String selectedWord = getText().subSequence(p.start, p.end).toString();
-                    mOnWordLongPressListener.onWordLongPress(p.start, selectedWord);
+                    mOnWordLongPressListener.onWordLongPress(p.start, p.word);
                 }
             }
             super.onLongPress(e);
         }
     }
 
-    private class Position {
-        public int start;
-        public int end;
+    /** util classes and methods */
 
-        Position(int s, int e) {
-            start = s;
-            end = e;
+    private class SelectedWord {
+        int start;
+        int end;
+        String word;
+
+        SelectedWord(int start, int end, String word) {
+            this.start = start;
+            this.end = end;
+            this.word = word;
         }
     }
 
-    private Position findSelectedWord(MotionEvent e) {
+    private SelectedWord findSelectedWord(MotionEvent e) {
 
         String text = getText().toString();
         int start = getOffsetForPosition(e.getX(), e.getY());
@@ -137,10 +216,8 @@ public class SelectableTextView extends TextView {
         }
 
         int wordStart = 0;
-        Character[] startPattern = {'.', ',', ' ', '('};
-        for (Character character : startPattern) {
+        for (Character character : START_PATTERN) {
             int position = text.lastIndexOf(character, start);
-            Log.d(TAG, character.toString() + " " + Integer.toString(position));
             if (position != -1 && position > wordStart) {
                 wordStart = position;
             }
@@ -151,8 +228,7 @@ public class SelectableTextView extends TextView {
         }
 
         int wordEnd = text.length();
-        Character[] endPattern = {'.', ',', ' ', ')'};
-        for (Character character : endPattern) {
+        for (Character character : END_PATTERN) {
             int end = text.indexOf(character, start);
             if (end != -1 && end < wordEnd) {
                 wordEnd = end;
@@ -163,10 +239,12 @@ public class SelectableTextView extends TextView {
             return null;
         }
 
-        return new Position(wordStart, wordEnd);
+        String word = getText().subSequence(wordStart, wordEnd).toString();
+        selectedWord = new SelectedWord(wordStart, wordEnd, word);
+        return selectedWord;
     }
 
-    private void setSpan(Position p) {
+    private void setSpan(SelectedWord p) {
         if (mEnableSpan && p != null) {
             SpannableStringBuilder ssb = new SpannableStringBuilder(getText());
             CharacterStyle span = new ForegroundColorSpan(mColor);
@@ -176,11 +254,5 @@ public class SelectableTextView extends TextView {
         }
     }
 
-    public void enableSelectWord(boolean enable){
-        mEnableSpan = enable;
-    }
 
-    public void setSelectColor(int color){
-        mColor = color;
-    }
 }

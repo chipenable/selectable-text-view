@@ -8,6 +8,7 @@ import android.widget.TextView;
 public class MainActivity extends AppCompatActivity implements SelectableTextView.OnWordClick,
         SelectableTextView.OnWordDoubleClick, SelectableTextView.OnWordLongPress{
 
+    private final String WORD_KEY = "word";
     private TextView mSelectedWord;
     private SelectableTextView mSelectableTextView;
 
@@ -23,6 +24,16 @@ public class MainActivity extends AppCompatActivity implements SelectableTextVie
         mSelectableTextView.enableSelectWord(true);
         mSelectableTextView.setSelectColor(Color.RED);
         mSelectedWord = (TextView)findViewById(R.id.selected_word_tv);
+
+        if (savedInstanceState != null){
+            mSelectedWord.setText(savedInstanceState.getString(WORD_KEY));
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(WORD_KEY, mSelectedWord.getText().toString());
     }
 
     @Override
